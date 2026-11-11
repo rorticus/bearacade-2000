@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEARACADE 2000</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #14001f; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading {
+    position: fixed; inset: 0; display: flex; flex-direction: column; gap: 18px;
+    align-items: center; justify-content: center; text-align: center;
+    font: 700 16px ui-monospace, Menlo, Consolas, monospace; color: #fff; background: #14001f;
+  }
+  #loading h1 { margin: 0; font-size: clamp(40px, 9vw, 110px); color: #5aff4d; letter-spacing: .04em; }
+  #loading h2 { margin: 0; font-size: clamp(22px, 4vw, 54px); color: #ff4dbf; letter-spacing: .5em; }
+  #loading p { margin: 0; color: #ffe633; }
+  #loading.error p { color: #ff6b6b; max-width: 40em; padding: 0 16px; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="game" tabindex="0"></canvas></div>
+<div id="loading">
+  <h1>BEARACADE</h1>
+  <h2>2000</h2>
+  <p id="status">LOADING BEARS...</p>
+</div>
+<script>
+  // Browsers keep audio suspended until the player interacts with the page.
+  // Remember every AudioContext the game opens and resume it on first input.
+  (() => {
+    const contexts = [];
+    const Native = window.AudioContext || window.webkitAudioContext;
+    if (!Native) return;
+    const Wrapped = function (...args) {
+      const ctx = new Native(...args);
+      contexts.push(ctx);
+      return ctx;
+    };
+    Wrapped.prototype = Native.prototype;
+    window.AudioContext = window.webkitAudioContext = Wrapped;
+    const resume = () => contexts.forEach((c) => c.state === "suspended" && c.resume());
+    for (const ev of ["keydown", "pointerdown", "touchstart"]) {
+      window.addEventListener(ev, resume, { capture: true });
+    }
+  })();
+</script>
+<script type="module">
+  import init from "./bearacade2000.js";
+  const loading = document.getElementById("loading");
+  const canvas = document.getElementById("game");
+  const fail = (msg) => {
+    loading.classList.add("error");
+    document.getElementById("status").textContent = msg;
+  };
+  if (!document.createElement("canvas").getContext("webgl2")) {
+    fail("This browser has no WebGL2, which the game needs.");
+  } else {
+    // Bevy leaves init() by throwing a control-flow exception; that is normal.
+    init().catch((e) => {
+      if (!String(e).includes("Using exceptions for control flow")) {
+        console.error(e);
+        fail("The game failed to start: " + e);
+      }
+    });
+    // Hide the splash once the engine has started drawing.
+    const started = performance.now();
+    const poll = () => {
+      if (window.__bearacadeReady || performance.now() - started > 60000) {
+        loading.remove();
+        canvas.focus();
+      } else {
+        requestAnimationFrame(poll);
+      }
+    };
+    poll();
+  }
+</script>
+</body>
+</html>

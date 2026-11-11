@@ -1,0 +1,29 @@
+[package]
+name = "bearacade2000"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.16.1", features = ["mp3", "wav", "jpeg"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window", "Location"] }
+js-sys = "0.3"
+
+# Fast-ish game code, fully optimised engine: keeps `cargo run` playable.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+# Web build: `./tools/build_web.sh`
+[profile.web]
+inherits = "release"
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
